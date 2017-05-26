@@ -1,7 +1,7 @@
 
 CFLAGS ?= -O2 -s
 
-TARGETS = which
+TARGETS = id which
 all: $(TARGETS)
 
 
