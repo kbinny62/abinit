@@ -1,7 +1,7 @@
 
 CFLAGS ?= -O2 -s
 
-TARGETS = cat ln mkdir mv rmdir unlink
+TARGETS = cat cut ln mkdir mktemp mv rmdir uname unlink
 all: $(TARGETS)
 
 .phony: clean
