@@ -1,9 +1,16 @@
 
-CFLAGS ?= -O2 -s
+CFLAGS ?= -O2 -g -ggdb
+STRIP ?= strip
+MV ?= mv
+RM ?= unlink
 
-TARGETS = cat cut ln mkdir mktemp mv rmdir uname unlink
+TARGETS = cat cut ln ls mkdir mktemp mv rmdir uname unlink
 all: $(TARGETS)
 
 .phony: clean
 clean:
-	-unlink $(TARGETS)
+	-$(RM) $(TARGETS)
+
+install: $(TARGETS)
+	for i in $(TARGETS); do $(MV) $$i /bin/$$i; $(STRIP) /bin/$$i; done
+
