@@ -22,8 +22,7 @@ static struct {
 	     *usage_str;
 	int opt_a, opt_l, opt_r, /* r: reverse sort */
 	    opt_A, opt_R, opt_F, /* R: recurse, F: no-follow+filetype */
-	    opt_L;		 /* L: follow symlinks */
-	char *cwd;
+	    opt_L, opt_S;	 /* L: follow symlinks, S: sort-by-size */
 } _g;
 
 
@@ -35,7 +34,6 @@ enum file_list_sorter {
 	SORTER_NONE = 0,
 	SORTER_COLL,
 	SORTER_SIZE,
-	SORTER_TYPE,
 };
 
 struct file_list {
@@ -70,11 +68,6 @@ int sortfunc_size(const struct file_list *f1, const struct file_list *f2)
 	return f1->sbuf.st_size - f2->sbuf.st_size;
 }
 
-int sortfunc_type(const struct file_list *f1, const struct file_list *f2)
-{
-	return (f1->sbuf.st_mode & S_IFMT) - (f2->sbuf.st_mode & S_IFMT);
-}
-
 void file_list_sort(struct file_list *head, enum file_list_sorter sorter)
 {
 	struct file_list *p1, *p2;
@@ -87,9 +80,6 @@ void file_list_sort(struct file_list *head, enum file_list_sorter sorter)
 	case SORTER_SIZE:
 		sortfunc = sortfunc_size;
 		break;
-	case SORTER_TYPE:
-		sortfunc = sortfunc_type;
-		break;
 	default:
 		sortfunc = NULL;
 		return;
@@ -98,8 +88,8 @@ void file_list_sort(struct file_list *head, enum file_list_sorter sorter)
 	assert(sortfunc != NULL);	
 	for (p1 = head->next; p1; p1 = p1->next) {
 		for (p2 = p1->next; p2 ; p2 = p2->next) {
-			register int result = sortfunc(p1, p2);
-			if (result > 0 || _g.opt_r && result < 0) {
+			register int result = _g.opt_r ? sortfunc(p2, p1) : sortfunc(p1, p2);
+			if (result > 0) {
 				struct file_list *r1 = p1->prev, *r2 = p2->prev;
 				struct file_list *p2next = p2->next, *tmp = p1;
 
@@ -260,17 +250,17 @@ const char *time_to_str(time_t t)
 int do_ls(char *pathname)
 {
 	struct stat sbuf, lsbuf;
-	struct file_list files;
+	struct file_list files, *p;
 	int force_follow = 0;
+	unsigned long dir_count = 0;
 
 	if (lstat(pathname, &lsbuf) == -1 || stat(pathname, &sbuf) == -1) {
 		fprintf(stderr, "%s: stat '%s': %s\n", _g.exename, pathname, strerror(errno));
 		return EXIT_FAILURE;
 	}
 
-	/* initialize head */
+	/* Enumerate */
 	memset(&files, 0, sizeof(files));
-
 	if (S_ISDIR(lsbuf.st_mode) || S_ISLNK(lsbuf.st_mode) && S_ISDIR(sbuf.st_mode) && (!_g.opt_F || _g.opt_L)) {	
 		DIR *dirp;
 		struct dirent *dp;
@@ -299,6 +289,7 @@ int do_ls(char *pathname)
 				if (S_ISLNK(esbuf.st_mode) && _g.opt_L)
 					stat(pathbuf, &esbuf);
 				file_list_add(&files, dp->d_name, pathbuf, &esbuf);
+				dir_count++;
 			}
 		} while (dp != NULL);
 
@@ -308,21 +299,33 @@ int do_ls(char *pathname)
 		file_list_add(&files, pathname, pathname, S_ISLNK(lsbuf.st_mode) && !_g.opt_L ? &lsbuf : &sbuf);
 
 
-	file_list_sort(&files, SORTER_COLL);
-	/* file_list_sort(&files, SORTER_TYPE); */
+	/* Sort */
+	if (_g.opt_S)
+		file_list_sort(&files, SORTER_SIZE);
+	else
+		file_list_sort(&files, SORTER_COLL);
 
-	if (_g.opt_l) {
-		struct file_list *p = &files;
+	/* Output */
+	if (S_ISDIR(lsbuf.st_mode) || (_g.opt_L || !_g.opt_F) && S_ISLNK(lsbuf.st_mode) && S_ISDIR(sbuf.st_mode)) {
+		if (_g.opt_R)
+			printf("%s:\n", pathname);
+		if (_g.opt_l)
+			/* non-standard: total of entries in directory */
+			printf("total %lu\n", dir_count);
+	}
+
+	for (p = files.next; p ; p = p->next) {
 		char *linkbuf = malloc(PATH_MAX+1);
 
-		while (p = p->next) {
-			if (p->sbuf.st_mode & (S_IFBLK | S_IFCHR))
-				printf("%s %u %s %s %u %s %s", mode_to_str(p->sbuf.st_mode), p->sbuf.st_nlink,
-				uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), p->sbuf.st_rdev,
+
+		if (_g.opt_l) {
+			if (S_ISBLK(p->sbuf.st_mode) || S_ISCHR(p->sbuf.st_mode))
+				printf("%s %u %s %s %8lu %s %s", mode_to_str(p->sbuf.st_mode), (unsigned)p->sbuf.st_nlink,
+				uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), (unsigned)p->sbuf.st_rdev,
 				time_to_str(p->sbuf.st_mtim.tv_sec), p->filename);
 			else
-				printf("%s %u %s %s %u %s %s", mode_to_str(p->sbuf.st_mode), p->sbuf.st_nlink,
-				uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), p->sbuf.st_size,
+				printf("%s %u %s %s %8lu %s %s", mode_to_str(p->sbuf.st_mode), p->sbuf.st_nlink,
+				uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), (unsigned long)p->sbuf.st_size,
 				time_to_str(p->sbuf.st_mtim.tv_sec), p->filename);
 
 			if (_g.opt_F && (!S_ISLNK(p->sbuf.st_mode) ||_g.opt_L))
@@ -335,17 +338,27 @@ int do_ls(char *pathname)
 				}
 			}
 			putchar('\n');
-		}
-		free(linkbuf);
-	} else {
-		struct file_list *p = &files;
-		while (p = p->next) {
+		} else {
 			printf("%s", p->filename);
 			if (_g.opt_F)
 				printf("%s", file_class_char(p));
 			putchar('\n');
 		}
+
+		free(linkbuf);
 	}
+
+
+	/** Recurse if needed */
+	if (_g.opt_R)
+		for (p = files.next; p; p = p->next) {
+			lstat(p->pathname, &lsbuf);
+			if (S_ISDIR(p->sbuf.st_mode) || S_ISLNK(p->sbuf.st_mode) && S_ISDIR(lsbuf.st_mode) \
+					&& (!_g.opt_F || _g.opt_L) && strcmp(p->filename, ".") && strcmp(p->filename, "..")) {
+				putchar('\n');
+				do_ls(p->pathname);
+			}
+		}
 
 	file_list_free(&files);
 	return EXIT_SUCCESS;
@@ -356,8 +369,8 @@ int main(int argc, char *argv[])
 	int opt, retv=EXIT_SUCCESS;
 	
 	_g.exename = argv[0];
-	_g.usage_str = "[-alrAFRL] FILE...";
-	while ((opt = getopt(argc, argv, "alrAFRL")) != -1) {
+	_g.usage_str = "[-alrAFRLS] FILE...";
+	while ((opt = getopt(argc, argv, "alrAFRLS")) != -1) {
 		switch (opt) {
 		case 'a': _g.opt_a = 1; break;
 		case 'l': _g.opt_l = 1; break;
@@ -366,20 +379,15 @@ int main(int argc, char *argv[])
 		case 'F': _g.opt_F = 1; break;
 		case 'R': _g.opt_R = 1; break;
 		case 'L': _g.opt_L = 1; break;
+		case 'S': _g.opt_S = 1; break;
 		default:
 			usage(NULL);
 			exit(EXIT_FAILURE);
 		}
 	}
 
-	_g.cwd = malloc(PATH_MAX+1);
-	if (getcwd(_g.cwd, PATH_MAX+1) == NULL) {
-		fprintf(stderr, "%s: getcwd: %s\n", _g.exename, strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-
 	if (optind >= argc)
-		retv = do_ls(_g.cwd);
+		retv = do_ls(".");
 	else for ( ; optind < argc; optind++ )
 		retv |= do_ls(argv[optind]);
 
