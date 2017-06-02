@@ -3,7 +3,7 @@ CFLAGS ?= -O2 -s
 STRIP ?= strip
 MV ?= mv
 
-TARGETS = env id which
+TARGETS = env id sort which
 all: $(TARGETS)
 
 
