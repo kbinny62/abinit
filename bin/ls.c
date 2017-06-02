@@ -26,6 +26,18 @@ static struct {
 } _g;
 
 
+void usage(char *msg, ...)
+{
+	if (msg) {
+		va_list ap;
+		va_start(ap, msg);
+		fprintf(stderr, "%s: ", _g.exename);
+		vfprintf(stderr, msg, ap);
+		va_end(ap);
+	}
+	fprintf(stderr, "Usage: %s %s\n", _g.exename, _g.usage_str);
+}
+
 
 /**
  * the `file list' data structure + scaffolding and helpers
@@ -154,19 +166,6 @@ char  *file_class_char(struct file_list *f)
 	default:
 		return "";
 	}
-}
-
-/* TODO: move up top */
-void usage(char *msg, ...)
-{
-	if (msg) {
-		va_list ap;
-		va_start(ap, msg);
-		fprintf(stderr, "%s: ", _g.exename);
-		vfprintf(stderr, msg, ap);
-		va_end(ap);
-	}
-	fprintf(stderr, "Usage: %s %s\n", _g.exename, _g.usage_str);
 }
 
 
