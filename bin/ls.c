@@ -126,7 +126,7 @@ void file_list_sort(struct file_list *head, enum file_list_sorter sorter)
 }
 
 
-#if 0
+#if 1
 void file_list_dump(struct file_list *head)
 {
 	struct file_list *p = head;
@@ -246,12 +246,51 @@ const char *time_to_str(time_t t)
 	return buf;
 }
 
-int do_ls(char *pathname)
+void list_file(struct file_list p[1])
 {
-	struct stat sbuf, lsbuf;
+	static char *linkbuf = NULL;
+	if (!linkbuf) assert(linkbuf = malloc(PATH_MAX+1));
+
+	if (_g.opt_l) {
+		if (S_ISBLK(p->sbuf.st_mode) || S_ISCHR(p->sbuf.st_mode))
+			printf("%s %u %s %s %8lu %s %s", mode_to_str(p->sbuf.st_mode), (unsigned)p->sbuf.st_nlink,
+			uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), (unsigned)p->sbuf.st_rdev,
+			time_to_str(p->sbuf.st_mtim.tv_sec), p->filename);
+		else
+			printf("%s %u %s %s %8lu %s %s", mode_to_str(p->sbuf.st_mode), p->sbuf.st_nlink,
+			uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), (unsigned long)p->sbuf.st_size,
+			time_to_str(p->sbuf.st_mtim.tv_sec), p->filename);
+
+		if (_g.opt_F && (!S_ISLNK(p->sbuf.st_mode) ||_g.opt_L))
+			printf("%s", file_class_char(p));
+		if (!_g.opt_L && S_ISLNK(p->sbuf.st_mode)) {
+			ssize_t len = readlink(p->pathname, linkbuf, PATH_MAX);
+			if (len != -1) {
+				linkbuf[len] = '\0';
+				printf(" -> %s", linkbuf);
+			}
+		}
+		putchar('\n');
+	} else {
+		printf("%s", p->filename);
+		if (_g.opt_F)
+			printf("%s", file_class_char(p));
+		putchar('\n');
+	}
+}
+
+#define	ABS(x) ((x) < 0 ? -(x) : (x))
+int do_ls(char *pathnamev[], ssize_t nargs)
+{
 	struct file_list files, *p;
-	int force_follow = 0;
+	struct stat sbuf, lsbuf;
 	unsigned long dir_count = 0;
+	char *pathname;
+	size_t i;
+
+	assert(pathnamev && ABS(nargs) > 0);
+	memset(&files, 0, sizeof(files));
+for (pathname=pathnamev[i=0]; i<ABS(nargs); pathname=pathnamev[++i]) {
 
 	if (lstat(pathname, &lsbuf) == -1 || stat(pathname, &sbuf) == -1) {
 		fprintf(stderr, "%s: stat '%s': %s\n", _g.exename, pathname, strerror(errno));
@@ -259,14 +298,14 @@ int do_ls(char *pathname)
 	}
 
 	/* Enumerate */
-	memset(&files, 0, sizeof(files));
-	if (S_ISDIR(lsbuf.st_mode) || S_ISLNK(lsbuf.st_mode) && S_ISDIR(sbuf.st_mode) && (!_g.opt_F || _g.opt_L)) {	
+	if ((S_ISDIR(lsbuf.st_mode) || S_ISLNK(lsbuf.st_mode) && S_ISDIR(sbuf.st_mode) && (!_g.opt_F || _g.opt_L)) && ABS(nargs) == 1) {	
 		DIR *dirp;
 		struct dirent *dp;
 		char *pathbuf = malloc(PATH_MAX+1);
 		struct stat esbuf;
 
 		assert(pathbuf != NULL);
+		files.sbuf = sbuf;
 		if ((dirp = opendir(pathname)) == NULL) {
 			fprintf(stderr, "%s: opendir '%s': %s\n", _g.exename, pathname, strerror(errno));
 			return EXIT_FAILURE;
@@ -274,28 +313,29 @@ int do_ls(char *pathname)
 
 		do {
 			errno = 0;
-			if ((dp = readdir(dirp)) != NULL) {
-				snprintf(pathbuf, PATH_MAX+1, "%s/%s", pathname, dp->d_name);
-				if (lstat(pathbuf, &esbuf) == -1) {
-					fprintf(stderr, "%s: lstat '%s': %s\n", _g.exename, pathbuf, strerror(errno));
-					continue;
-				}
-
-				if (*dp->d_name == '.' && !(_g.opt_a || _g.opt_A))
-					continue;
-				if (!(strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) && !_g.opt_a)
-					continue;
-				if (S_ISLNK(esbuf.st_mode) && _g.opt_L)
-					stat(pathbuf, &esbuf);
-				file_list_add(&files, dp->d_name, pathbuf, &esbuf);
-				dir_count++;
+			if ((dp = readdir(dirp)) == NULL)
+				continue;
+			snprintf(pathbuf, PATH_MAX+1, "%s/%s", pathname, dp->d_name);
+			if (lstat(pathbuf, &esbuf) == -1) {
+				fprintf(stderr, "%s: lstat '%s': %s\n", _g.exename, pathbuf, strerror(errno));
+				continue;
 			}
+
+			if (*dp->d_name == '.' && !(_g.opt_a || _g.opt_A))
+				continue;
+			if (!(strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) && !_g.opt_a)
+				continue;
+			if (S_ISLNK(esbuf.st_mode) && _g.opt_L)
+				stat(pathbuf, &esbuf);
+			file_list_add(&files, dp->d_name, pathbuf, &esbuf);
+			dir_count++;
 		} while (dp != NULL);
 
 		free(pathbuf);
 		closedir(dirp);
 	} else
 		file_list_add(&files, pathname, pathname, S_ISLNK(lsbuf.st_mode) && !_g.opt_L ? &lsbuf : &sbuf);
+} /* for(p in pathnamev) */
 
 
 	/* Sort */
@@ -305,57 +345,25 @@ int do_ls(char *pathname)
 		file_list_sort(&files, SORTER_COLL);
 
 	/* Output */
-	if (S_ISDIR(lsbuf.st_mode) || (_g.opt_L || !_g.opt_F) && S_ISLNK(lsbuf.st_mode) && S_ISDIR(sbuf.st_mode)) {
-		if (_g.opt_R)
-			printf("%s:\n", pathname);
+	if (ABS(nargs) == 1 && S_ISDIR(files.sbuf.st_mode)) {
+		if (_g.opt_R || nargs == -1)
+			printf("%s:\n", pathnamev[0]);
 		if (_g.opt_l)
 			/* non-standard: total of entries in directory */
 			printf("total %lu\n", dir_count);
 	}
 
-	for (p = files.next; p ; p = p->next) {
-		char *linkbuf = malloc(PATH_MAX+1);
+	for (p = files.next; p ; p = p->next)
+		if (nargs > 0 || !S_ISDIR(p->sbuf.st_mode)) list_file(p);
 
-
-		if (_g.opt_l) {
-			if (S_ISBLK(p->sbuf.st_mode) || S_ISCHR(p->sbuf.st_mode))
-				printf("%s %u %s %s %8lu %s %s", mode_to_str(p->sbuf.st_mode), (unsigned)p->sbuf.st_nlink,
-				uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), (unsigned)p->sbuf.st_rdev,
-				time_to_str(p->sbuf.st_mtim.tv_sec), p->filename);
-			else
-				printf("%s %u %s %s %8lu %s %s", mode_to_str(p->sbuf.st_mode), p->sbuf.st_nlink,
-				uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), (unsigned long)p->sbuf.st_size,
-				time_to_str(p->sbuf.st_mtim.tv_sec), p->filename);
-
-			if (_g.opt_F && (!S_ISLNK(p->sbuf.st_mode) ||_g.opt_L))
-				printf("%s", file_class_char(p));
-			if (!_g.opt_L && S_ISLNK(p->sbuf.st_mode)) {
-				ssize_t len = readlink(p->pathname, linkbuf, PATH_MAX);
-				if (len != -1) {
-					linkbuf[len] = '\0';
-					printf(" -> %s", linkbuf);
-				}
-			}
-			putchar('\n');
-		} else {
-			printf("%s", p->filename);
-			if (_g.opt_F)
-				printf("%s", file_class_char(p));
-			putchar('\n');
-		}
-
-		free(linkbuf);
-	}
-
-
-	/** Recurse if needed */
-	if (_g.opt_R)
+	/** Recurse if needed (-R or explicit command line args) */
+	if (_g.opt_R || ABS(nargs) > 1)
 		for (p = files.next; p; p = p->next) {
 			lstat(p->pathname, &lsbuf);
 			if (S_ISDIR(p->sbuf.st_mode) || S_ISLNK(p->sbuf.st_mode) && S_ISDIR(lsbuf.st_mode) \
 					&& (!_g.opt_F || _g.opt_L) && strcmp(p->filename, ".") && strcmp(p->filename, "..")) {
-				putchar('\n');
-				do_ls(p->pathname);
+				if (ABS(nargs) > 1) putchar('\n');
+				do_ls(&p->pathname, nargs > 0 ? 1 : -1);
 			}
 		}
 
@@ -385,11 +393,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (optind >= argc)
-		retv = do_ls(".");
-	else for ( ; optind < argc; optind++ )
-		retv |= do_ls(argv[optind]);
-
+	if (optind >= argc) {
+		const char *cwd = ".";
+		retv = do_ls(&cwd, -1);
+	} else
+		retv = do_ls(&argv[optind], -(argc-optind));
 	return retv;
 }
-
