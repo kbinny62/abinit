@@ -346,7 +346,7 @@ for (pathname=pathnamev[i=0]; i<ABS(nargs); pathname=pathnamev[++i]) {
 
 	/* Output */
 	if (ABS(nargs) == 1 && S_ISDIR(files.sbuf.st_mode)) {
-		if (_g.opt_R || nargs == -1)
+		if (_g.opt_R || nargs != -1)
 			printf("%s:\n", pathnamev[0]);
 		if (_g.opt_l)
 			/* non-standard: total of entries in directory */
@@ -357,15 +357,19 @@ for (pathname=pathnamev[i=0]; i<ABS(nargs); pathname=pathnamev[++i]) {
 		if (nargs > 0 || !S_ISDIR(p->sbuf.st_mode)) list_file(p);
 
 	/** Recurse if needed (-R or explicit command line args) */
-	if (_g.opt_R || ABS(nargs) > 1)
+	if (_g.opt_R || ABS(nargs) > 1) {
+		if (nargs < -1)
+			putchar('\n');
 		for (p = files.next; p; p = p->next) {
 			lstat(p->pathname, &lsbuf);
 			if (S_ISDIR(p->sbuf.st_mode) || S_ISLNK(p->sbuf.st_mode) && S_ISDIR(lsbuf.st_mode) \
 					&& (!_g.opt_F || _g.opt_L) && strcmp(p->filename, ".") && strcmp(p->filename, "..")) {
-				if (ABS(nargs) > 1) putchar('\n');
-				do_ls(&p->pathname, nargs > 0 ? 1 : -1);
+				if (ABS(nargs) > 1 && p != files.next)
+					putchar('\n');
+				do_ls(&p->pathname, 1);
 			}
 		}
+	}
 
 	file_list_free(&files);
 	return EXIT_SUCCESS;
@@ -395,7 +399,7 @@ int main(int argc, char *argv[])
 
 	if (optind >= argc) {
 		const char *cwd = ".";
-		retv = do_ls(&cwd, -1);
+		retv = do_ls(&cwd, 1);
 	} else
 		retv = do_ls(&argv[optind], -(argc-optind));
 	return retv;
