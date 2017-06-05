@@ -399,7 +399,7 @@ int main(int argc, char *argv[])
 
 	if (optind >= argc) {
 		const char *cwd = ".";
-		retv = do_ls(&cwd, 1);
+		retv = do_ls(&cwd, -1);
 	} else
 		retv = do_ls(&argv[optind], -(argc-optind));
 	return retv;
