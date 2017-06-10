@@ -280,13 +280,17 @@ void list_file(struct file_list p[1])
 }
 
 #define	ABS(x) ((x) < 0 ? -(x) : (x))
+/**
+ *  the sign of nargs determines nature of paths passed in pathnamev
+ *  nargs < 0: primary arguments from main
+ *  nargs > 0: +1 is used to signal a recursive dir listing call
+ */
 int do_ls(char *pathnamev[], ssize_t nargs)
 {
 	struct file_list files, *p;
 	struct stat sbuf, lsbuf;
-	unsigned long dir_count = 0;
-	char *pathname;
-	size_t i;
+	char *pathname, is_mixed_listing=0, is_first_listing=1;
+	size_t dir_count = 0, i;
 
 	assert(pathnamev && ABS(nargs) > 0);
 	memset(&files, 0, sizeof(files));
@@ -297,8 +301,11 @@ for (pathname=pathnamev[i=0]; i<ABS(nargs); pathname=pathnamev[++i]) {
 		return EXIT_FAILURE;
 	}
 
+	if (ABS(nargs) > 1 && !(is_mixed_listing || (S_ISDIR(lsbuf.st_mode) || S_ISLNK(lsbuf.st_mode) && S_ISDIR(sbuf.st_mode) && (!_g.opt_F || _g.opt_L))))
+		is_mixed_listing = 1;
+
 	/* Enumerate */
-	if ((S_ISDIR(lsbuf.st_mode) || S_ISLNK(lsbuf.st_mode) && S_ISDIR(sbuf.st_mode) && (!_g.opt_F || _g.opt_L)) && ABS(nargs) == 1) {	
+	if (nargs == 1 && (S_ISDIR(lsbuf.st_mode) || S_ISLNK(lsbuf.st_mode) && S_ISDIR(sbuf.st_mode) && (!_g.opt_F || _g.opt_L))) {	
 		DIR *dirp;
 		struct dirent *dp;
 		char *pathbuf = malloc(PATH_MAX+1);
@@ -345,28 +352,28 @@ for (pathname=pathnamev[i=0]; i<ABS(nargs); pathname=pathnamev[++i]) {
 		file_list_sort(&files, SORTER_COLL);
 
 	/* Output */
-	if (ABS(nargs) == 1 && S_ISDIR(files.sbuf.st_mode)) {
-		if (_g.opt_R || nargs != -1)
-			printf("%s:\n", pathnamev[0]);
-		if (_g.opt_l)
-			/* non-standard: total of entries in directory */
-			printf("total %lu\n", dir_count);
-	}
+	if (nargs == 1 && S_ISDIR(files.sbuf.st_mode) && _g.opt_l)
+		/* non-standard: total of entries in directory, POSIX is number of blocks */
+		printf("total %zu\n", dir_count);
 
 	for (p = files.next; p ; p = p->next)
-		if (nargs > 0 || !S_ISDIR(p->sbuf.st_mode)) list_file(p);
+		if (nargs > 0 || !S_ISDIR(p->sbuf.st_mode)) {
+			list_file(p);
+			is_first_listing = 0;
+		}
 
 	/** Recurse if needed (-R or explicit command line args) */
-	if (_g.opt_R || ABS(nargs) > 1) {
-		if (nargs < -1)
-			putchar('\n');
+	if (_g.opt_R || nargs < 0) {
 		for (p = files.next; p; p = p->next) {
 			lstat(p->pathname, &lsbuf);
 			if (S_ISDIR(p->sbuf.st_mode) || S_ISLNK(p->sbuf.st_mode) && S_ISDIR(lsbuf.st_mode) \
 					&& (!_g.opt_F || _g.opt_L) && strcmp(p->filename, ".") && strcmp(p->filename, "..")) {
-				if (ABS(nargs) > 1 && p != files.next)
+				if (ABS(nargs) > 1 && is_mixed_listing || !is_first_listing)
 					putchar('\n');
+				if (_g.opt_R || ABS(nargs) > 1)
+					printf("%s:\n", p->pathname);
 				do_ls(&p->pathname, 1);
+				is_first_listing = 0;
 			}
 		}
 	}
