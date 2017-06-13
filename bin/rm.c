@@ -50,8 +50,8 @@ static int usage(char *msg, ...)
 
 static inline int confirm_remove(const char *pathname)
 {
-	char *answer;
-	size_t len;
+	char *answer = NULL;
+	size_t len = 0;
 	if (!isatty(STDIN_FILENO))
 		return 0;
 	do {

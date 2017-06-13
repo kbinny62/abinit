@@ -1,4 +1,6 @@
 
+#define	_POSIX_SOURCE
+
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>

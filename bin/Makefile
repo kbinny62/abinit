@@ -1,10 +1,10 @@
 
-CFLAGS ?= -O2 -g -ggdb
+CFLAGS ?= -std=c99 -O2 -g -ggdb
 STRIP ?= strip
 MV ?= mv
 RM ?= unlink
 
-TARGETS = cat cut ln ls mkdir mktemp mv rmdir uname unlink
+TARGETS = cat cp cut ln ls mkdir mktemp mv rm rmdir uname unlink
 all: $(TARGETS)
 
 .phony: clean
