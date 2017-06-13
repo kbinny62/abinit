@@ -4,7 +4,7 @@ STRIP ?= strip
 MV ?= mv
 RM ?= unlink
 
-TARGETS = cat cp cut ln ls mkdir mktemp mv rm rmdir uname unlink
+TARGETS = cat chmod cp cut ln ls mkdir mktemp mv rm rmdir uname unlink
 all: $(TARGETS)
 
 .phony: clean
