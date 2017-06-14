@@ -90,10 +90,12 @@ int coll_sorter(const char **l1, const char **l2)
 	return _g.opt_r ? -retv : retv;
 }
 
+typedef int (*sort_callback_t)(const void*, const void*);
+
 int do_sort(const char *filename)
 {
 	FILE *fp = filename && strcmp(filename, "-") ? fopen(filename, "r") : stdin;
-	ssize_t n, i;
+	size_t n, i;
 	char *line;
 
 
@@ -109,7 +111,7 @@ int do_sort(const char *filename)
 	if (ferror(fp))
 		fprintf(stderr, "%s: error reading '%s': %s\n", _g.exename, filename, strerror(errno));
 		
-	qsort(_g.buf, _g.num_lines, sizeof(*_g.buf), _g.opt_n ? num_sorter: coll_sorter);
+	qsort(_g.buf, _g.num_lines, sizeof(*_g.buf), (sort_callback_t)(_g.opt_n ? num_sorter: coll_sorter));
 	for (i=0; i<_g.num_lines; i++)
 		printf("%s\n", _g.buf[i]);
 	
