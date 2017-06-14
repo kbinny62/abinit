@@ -12,8 +12,8 @@ struct {
 	int opt_s, opt_f;
 	int opt_v;
 	int dest_isdir;
-	const char *exename;
-	const char *dest;
+	char *exename;
+	char *dest;
 } _g;
 
 void usage(const char *msg)
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 			linkpath = (char*)malloc(strlen(_g.dest) + sizeof('/')
 				+ strlen(basename(argv[optind])) + sizeof('\0'));
 			sprintf(linkpath, "%s/%s", _g.dest, basename(argv[optind]));
-		} else linkpath = _g.dest;
+		} else linkpath = (char*)_g.dest;
 
 		if (_g.opt_v)
 			fprintf(stdout, "%s -> %s\n", argv[optind], linkpath);

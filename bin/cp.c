@@ -55,13 +55,13 @@ static void usage(char *msg, ...)
 }
 
 
-static inline int path_isdir(const char *pathname)
+static int path_isdir(const char *pathname)
 {
 	struct stat sbuf;
 	return (_g.opt_L ? stat(pathname, &sbuf) : lstat(pathname, &sbuf)) != 0 && S_ISDIR(sbuf.st_mode) ? 1 : 0;
 }
 
-static inline int confirm_overwrite(const char *pathname)
+static int confirm_overwrite(const char *pathname)
 {
 	char *answer = NULL;
 	size_t len = 0;
@@ -131,8 +131,10 @@ eagain:
 				nwritten += retv;
 			if (retv == -1 && errno == EAGAIN)
 				goto eagain;
-			else if (retv == -1)
-				ERR("write '%s'", dest_path), break;
+			else if (retv == -1) {
+				ERR("write '%s'", dest_path);
+				break;
+			}
 		}
 	}
 #endif
@@ -151,8 +153,6 @@ static int do_cp(const char *dest_path, char* const* pathnamev, size_t nargs)
 	struct stat sbuf, lsbuf;
 	char buf[PATH_MAX];
 	size_t i;
-
-	INFO("%s: dest=%s, nargs=%d\n", __func__, dest_path, nargs);
 
 	assert(dest_path && pathnamev && nargs > 0);
 	if (path_isdir(dest_path))

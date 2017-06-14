@@ -1,8 +1,8 @@
 
-CFLAGS ?= -std=c99 -O2 -g -ggdb
+CFLAGS = -std=c89 -pedantic -O2 -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=500 -g -ggdb
 STRIP ?= strip
 MV ?= mv
-RM ?= unlink
+RM ?= rm 
 
 TARGETS = cat chmod cp cut ln ls mkdir mktemp mv rm rmdir uname unlink
 all: $(TARGETS)
