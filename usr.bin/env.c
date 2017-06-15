@@ -78,8 +78,12 @@ int main(int argc, char *argv[])
 			exit(EXIT_FAILURE);
 		} else {
 			int status;
+			int wait_flags = WUNTRACED;
+#ifdef	WCONTINUED
+			wait_flags |= WCONTINUED
+#endif
 			do {
-				if (waitpid(pid, &status, WCONTINUED | WUNTRACED) != pid) {
+				if (waitpid(pid, &status, wait_flags) != pid) {
 					fprintf(stderr, "%s: waitpid failed: %s\n", _g.exename, strerror(errno));
 					exit(EXIT_FAILURE);
 				} else if (WIFEXITED(status))

@@ -48,7 +48,7 @@ static int usage(char *msg, ...)
 	return EXIT_FAILURE;
 }
 
-static inline int confirm_remove(const char *pathname)
+static int confirm_remove(const char *pathname)
 {
 	char *answer = NULL;
 	size_t len = 0;

@@ -15,7 +15,7 @@ static struct {
 	int opt_p, opt_v;
 } _g;
 
-inline static void usage(const char *msg)
+static void usage(const char *msg)
 {
 	if (msg) fprintf(stderr, "%s: %s\n", _g.exename, msg);
 	fprintf(stderr, "Usage: %s [-p] DIR...\n", _g.exename);	

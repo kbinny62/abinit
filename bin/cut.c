@@ -23,7 +23,7 @@ static struct {
 
 	char *opt_fields;
 	struct integer_range *fields;
-	long num_fields;
+	size_t num_fields;
 } _g;
 
 
@@ -49,7 +49,7 @@ int do_cut(char *filename)
 {
 	FILE *fp = strcmp(filename, "-") ? fopen(filename, "r") : stdin;
 	char *line = NULL;
-	ssize_t n = 0;
+	size_t n = 0;
 
 
 	if (fp == NULL) {
@@ -74,9 +74,11 @@ int do_cut(char *filename)
 void do_fields(char *line)
 {
 	long fnr = 0;
-	for (char *p = strtok(line, _g.opt_delim); p; p = strtok(NULL, _g.opt_delim)) {
+	char *p;
+	for (p = strtok(line, _g.opt_delim); p; p = strtok(NULL, _g.opt_delim)) {
+		size_t i;
 		fnr++;
-		for (int i = 0; i < _g.num_fields; i++)
+		for (i = 0; i < _g.num_fields; i++)
 			if (fnr >= _g.fields[i].lo_bound && fnr <= _g.fields[i].hi_bound) {
 				if (i > 0) printf("%s", _g.opt_delim[0]);
 				printf("%s", p);
@@ -117,7 +119,7 @@ int main(int argc, char *argv[])
 	int opt, retv=EXIT_SUCCESS;
 	
 	_g.exename = argv[0];
-	_g.usage_str = "[-v] FILE...";
+	_g.usage_str = "[-d DELIM] [-f FIELD...] [-|FILE...]";
 	while ((opt = getopt(argc, argv, "d:f:")) != -1) {
 		switch (opt) {
 		case 'd': _g.opt_delim = optarg; break;

@@ -29,7 +29,7 @@ void usage(const char *msg)
 	exit(EXIT_FAILURE);
 }
 
-static inline const char *uid_to_str(uid_t uid)
+static const char *uid_to_str(uid_t uid)
 {
 	struct passwd *pwd;
 	if ((pwd = getpwuid(uid)) != NULL)
@@ -38,7 +38,7 @@ static inline const char *uid_to_str(uid_t uid)
 		return NULL;
 }
 
-static inline const char *gid_to_str(gid_t gid)
+static const char *gid_to_str(gid_t gid)
 {
 	struct group *grp;
 	if ((grp = getgrgid(gid)) != NULL)

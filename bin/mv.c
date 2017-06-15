@@ -23,7 +23,7 @@ static struct {
 } _g;
 
 
-static inline int file_isdir(const char *pathname)
+static int file_isdir(const char *pathname)
 {
 	struct stat sbuf;
 	if (stat(pathname, &sbuf) != 0)

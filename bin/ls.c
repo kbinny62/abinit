@@ -47,7 +47,7 @@ void usage(char *msg, ...)
 enum file_list_sorter {
 	SORTER_NONE = 0,
 	SORTER_COLL,
-	SORTER_SIZE,
+	SORTER_SIZE
 };
 
 struct file_list {
@@ -287,7 +287,7 @@ void list_file(struct file_list p[1])
  *  nargs < 0: primary arguments from main
  *  nargs > 0: +1 is used to signal a recursive dir listing call
  */
-int do_ls(char *pathnamev[], ssize_t nargs)
+int do_ls(char * const pathnamev[], ssize_t nargs)
 {
 	struct file_list files, *p;
 	struct stat sbuf, lsbuf;
@@ -407,7 +407,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (optind >= argc) {
-		const char *cwd = ".";
+		char *cwd = ".";
 		retv = do_ls(&cwd, -1);
 	} else
 		retv = do_ls(&argv[optind], -(argc-optind));
