@@ -1,10 +1,13 @@
 
+#define	_POSIX_SOURCE
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <getopt.h>
+#include <limits.h>
 #include <sys/stat.h>
 
 static struct {
@@ -36,8 +39,24 @@ int main(int argc, char *argv[])
 	else for(; optind < argc; optind++) {
 		if (_g.opt_v)
 			printf("%s: %s\n", _g.exename, argv[optind]);
-		if (mkdir(argv[optind], 0750) == -1) {
-			fprintf(stderr, "%s: mkdir failed: %s\n", _g.exename, strerror(errno));
+		if (_g.opt_p) {
+			char *tok, *cumul_path=malloc(PATH_MAX+1);
+			*cumul_path = '\0';
+			for (tok=strtok(argv[optind], "/"); tok != NULL; tok = strtok(NULL, "/")) {
+				if (PATH_MAX-strlen(cumul_path) < strlen(tok)) {
+					fprintf(stderr, "%s: path name too long (>%u), ignoring rest of directory path.\n", _g.exename, PATH_MAX);
+					break;
+				}
+				strncat(cumul_path, tok, PATH_MAX-strlen(cumul_path));
+				if (mkdir(cumul_path, 0750) == -1 && errno != EEXIST) {
+					fprintf(stderr, "%s: mkdir failed for '%s': %s\n", _g.exename, cumul_path, strerror(errno));
+					retv |= EXIT_FAILURE;
+					break;
+				}
+				strncat(cumul_path, "/", PATH_MAX-strlen(cumul_path));
+			}
+		} else if (mkdir(argv[optind], 0750) == -1) {
+			fprintf(stderr, "%s: mkdir failed for '%s': %s\n", _g.exename, argv[optind], strerror(errno));
 			retv |= EXIT_FAILURE;
 		}
 	}
