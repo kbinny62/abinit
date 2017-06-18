@@ -7,7 +7,6 @@ all: $(TARGETS)
 
 
 
-.phony: clean
 clean:
 	-$(RM) -f $(TARGETS)
 

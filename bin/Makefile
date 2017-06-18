@@ -7,7 +7,6 @@ RM ?= rm
 TARGETS = cat chmod cp cut ln ls mkdir mktemp mv rm rmdir uname unlink
 all: $(TARGETS)
 
-.phony: clean
 clean:
 	-$(RM) $(TARGETS)
 

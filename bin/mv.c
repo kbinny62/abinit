@@ -48,7 +48,6 @@ void usage(char *msg, ...)
 int main(int argc, char *argv[])
 {
 	int opt, retv=EXIT_SUCCESS;
-	struct stat sbuf;
 	
 	_g.exename = argv[0];
 	_g.usage_str = "[-fiv] SRC... TARGET";

@@ -22,7 +22,7 @@ void usage(const char *msg)
 		fprintf(stderr, "%s: %s\n", _g.exename, msg);
 	fprintf(stderr, "Usage: %s [-f] [-s]\tTARGET    LINKNAME\n"
 			"\t\t\tTARGETS.. DESTDIR\n",
-			_g.exename, _g.exename);
+			_g.exename);
 }
 
 int main(int argc, char *argv[])

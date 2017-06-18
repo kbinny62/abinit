@@ -106,6 +106,8 @@ int do_rm(char *const *pathnamev, size_t nargs)
 		else
 			retv |= nftw(pathnamev[i], do_ftw_rm, 16, FTW_DEPTH | FTW_PHYS);
 	}
+
+	return retv;
 }
 
 int main(int argc, char *argv[])

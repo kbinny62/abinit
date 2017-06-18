@@ -92,8 +92,8 @@ int sortfunc_size(const struct file_list *f1, const struct file_list *f2)
 /* [acm]time sort compare callback, return newest-first for non-reverse (-r) mode */
 int sortfunc_time(const struct file_list *f1, const struct file_list *f2)
 {
-	struct timespec *t1 = _g.opt_c ? &f1->sbuf.st_ctim : _g.opt_u ? &f1->sbuf.st_atim : &f1->sbuf.st_mtim;
-	struct timespec *t2 = _g.opt_c ? &f2->sbuf.st_ctim : _g.opt_u ? &f2->sbuf.st_atim : &f2->sbuf.st_mtim;
+	const struct timespec *t1 = _g.opt_c ? &f1->sbuf.st_ctim : _g.opt_u ? &f1->sbuf.st_atim : &f1->sbuf.st_mtim;
+	const struct timespec *t2 = _g.opt_c ? &f2->sbuf.st_ctim : _g.opt_u ? &f2->sbuf.st_atim : &f2->sbuf.st_mtim;
 	if (t1->tv_sec == t2->tv_sec)
 		return t2->tv_nsec - t1->tv_nsec;
 	else
@@ -150,7 +150,7 @@ void file_list_sort(struct file_list *head, enum file_list_sorter sorter)
 }
 
 
-#if 1
+#if 0
 void file_list_dump(struct file_list *head)
 {
 	struct file_list *p = head;
@@ -275,7 +275,7 @@ void list_file(struct file_list p[1])
 		struct timespec *tmspec = _g.opt_c ? &p->sbuf.st_ctim : _g.opt_u ? &p->sbuf.st_atim : &p->sbuf.st_mtim;
 		if (S_ISBLK(p->sbuf.st_mode) || S_ISCHR(p->sbuf.st_mode))
 			printf("%s %u %s %s %8lu %s %s", mode_to_str(p->sbuf.st_mode), (unsigned)p->sbuf.st_nlink,
-			uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), (unsigned)p->sbuf.st_rdev,
+			uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), (unsigned long)p->sbuf.st_rdev,
 			time_to_str(tmspec->tv_sec), p->filename);
 		else
 			printf("%s %u %s %s %8lu %s %s", mode_to_str(p->sbuf.st_mode), p->sbuf.st_nlink,

@@ -80,7 +80,7 @@ void do_fields(char *line)
 		fnr++;
 		for (i = 0; i < _g.num_fields; i++)
 			if (fnr >= _g.fields[i].lo_bound && fnr <= _g.fields[i].hi_bound) {
-				if (i > 0) printf("%s", _g.opt_delim[0]);
+				if (i > 0) printf("%c", _g.opt_delim[0]);
 				printf("%s", p);
 			}
 	}
@@ -119,7 +119,9 @@ int main(int argc, char *argv[])
 	int opt, retv=EXIT_SUCCESS;
 	
 	_g.exename = argv[0];
-	_g.usage_str = "[-d DELIM] [-f FIELD...] [-|FILE...]";
+	_g.usage_str = "[-d DELIM] [-f FIELD...] [-|FILE...]"
+		       "\n\tFIELD := START[-END][,FIELD]"
+		       "\n\tDELIM is a char string, output separator is DELIM[0]";
 	while ((opt = getopt(argc, argv, "d:f:")) != -1) {
 		switch (opt) {
 		case 'd': _g.opt_delim = optarg; break;
@@ -130,7 +132,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (!_g.opt_delim) _g.opt_delim = "\t";
+	if (!_g.opt_delim) _g.opt_delim = " \t";
 	if (_g.opt_fields) str_to_ranged_list(_g.opt_fields, &_g.fields, &_g.num_fields);
 
 	if (optind >= argc)
