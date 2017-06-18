@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 			int status;
 			int wait_flags = WUNTRACED;
 #ifdef	WCONTINUED
-			wait_flags |= WCONTINUED
+			wait_flags |= WCONTINUED;
 #endif
 			do {
 				if (waitpid(pid, &status, wait_flags) != pid) {
