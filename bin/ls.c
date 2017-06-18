@@ -15,6 +15,7 @@
 #include <limits.h>
 #include <pwd.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 
@@ -23,9 +24,9 @@ struct file_list;
 static struct {
 	char *exename,
 	     *usage_str;
-	int opt_a, opt_l, opt_r, /* r: reverse sort */
-	    opt_A, opt_R, opt_F, /* R: recurse, F: no-follow+filetype */
-	    opt_L, opt_S;	 /* L: follow symlinks, S: sort-by-size */
+	int opt_a, opt_c, opt_i, opt_l,
+	    opt_r, opt_t, opt_u, opt_A,
+	    opt_R, opt_F, opt_L, opt_S;
 	struct file_list *listed_dirs;
 } _g;
 
@@ -50,7 +51,8 @@ void usage(char *msg, ...)
 enum file_list_sorter {
 	SORTER_NONE = 0,
 	SORTER_COLL,
-	SORTER_SIZE
+	SORTER_SIZE,
+	SORTER_TIME
 };
 
 struct file_list {
@@ -87,6 +89,17 @@ int sortfunc_size(const struct file_list *f1, const struct file_list *f2)
 	return f1->sbuf.st_size - f2->sbuf.st_size;
 }
 
+/* [acm]time sort compare callback, return newest-first for non-reverse (-r) mode */
+int sortfunc_time(const struct file_list *f1, const struct file_list *f2)
+{
+	struct timespec *t1 = _g.opt_c ? &f1->sbuf.st_ctim : _g.opt_u ? &f1->sbuf.st_atim : &f1->sbuf.st_mtim;
+	struct timespec *t2 = _g.opt_c ? &f2->sbuf.st_ctim : _g.opt_u ? &f2->sbuf.st_atim : &f2->sbuf.st_mtim;
+	if (t1->tv_sec == t2->tv_sec)
+		return t2->tv_nsec - t1->tv_nsec;
+	else
+		return t2->tv_sec - t1->tv_sec;
+}
+
 /* Sort forall f in file_list pointed by head (starting @head->next) */
 void file_list_sort(struct file_list *head, enum file_list_sorter sorter)
 {
@@ -99,6 +112,9 @@ void file_list_sort(struct file_list *head, enum file_list_sorter sorter)
 		break;
 	case SORTER_SIZE:
 		sortfunc = sortfunc_size;
+		break;
+	case SORTER_TIME:
+		sortfunc = sortfunc_time;
 		break;
 	default:
 		sortfunc = NULL;
@@ -253,15 +269,18 @@ void list_file(struct file_list p[1])
 	if (_g.opt_L)
 		stat(p->pathname, &sbuf);
 
+	if (_g.opt_i)
+		printf("%-8lu ", _g.opt_L ? sbuf.st_ino : p->sbuf.st_ino);
 	if (_g.opt_l) {
+		struct timespec *tmspec = _g.opt_c ? &p->sbuf.st_ctim : _g.opt_u ? &p->sbuf.st_atim : &p->sbuf.st_mtim;
 		if (S_ISBLK(p->sbuf.st_mode) || S_ISCHR(p->sbuf.st_mode))
 			printf("%s %u %s %s %8lu %s %s", mode_to_str(p->sbuf.st_mode), (unsigned)p->sbuf.st_nlink,
 			uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), (unsigned)p->sbuf.st_rdev,
-			time_to_str(p->sbuf.st_mtim.tv_sec), p->filename);
+			time_to_str(tmspec->tv_sec), p->filename);
 		else
 			printf("%s %u %s %s %8lu %s %s", mode_to_str(p->sbuf.st_mode), p->sbuf.st_nlink,
 			uid_to_str(p->sbuf.st_uid), gid_to_str(p->sbuf.st_gid), (unsigned long)p->sbuf.st_size,
-			time_to_str(p->sbuf.st_mtim.tv_sec), p->filename);
+			time_to_str(tmspec->tv_sec), p->filename);
 
 		if (_g.opt_F && (!S_ISLNK(p->sbuf.st_mode) ||_g.opt_L))
 			printf("%s", file_class_char(_g.opt_L ? &sbuf : &p->sbuf));
@@ -349,6 +368,8 @@ for (pathname=pathnamev[i=0]; i<ABS(nargs); pathname=pathnamev[++i]) {
 	/* Sort */
 	if (_g.opt_S)
 		file_list_sort(&files, SORTER_SIZE);
+	else if (_g.opt_t)
+		file_list_sort(&files, SORTER_TIME);
 	else
 		file_list_sort(&files, SORTER_COLL);
 
@@ -411,12 +432,16 @@ int main(int argc, char *argv[])
 	int opt, retv=EXIT_SUCCESS;
 	
 	_g.exename = argv[0];
-	_g.usage_str = "[-alrAFRLS] FILE...";
-	while ((opt = getopt(argc, argv, "alrAFRLS")) != -1) {
+	_g.usage_str = "[-acilrtuAFRLS] FILE...";
+	while ((opt = getopt(argc, argv, "acilrtuAFRLS")) != -1) {
 		switch (opt) {
 		case 'a': _g.opt_a = 1; break;
+		case 'c': _g.opt_c = 1; _g.opt_u = 0; break;
+		case 'i': _g.opt_i = 1; break;
 		case 'l': _g.opt_l = 1; break;
 		case 'r': _g.opt_r = 1; break;
+		case 't': _g.opt_t = 1; break;
+		case 'u': _g.opt_u = 1; _g.opt_c = 0; break;
 		case 'A': _g.opt_A = 1; break;
 		case 'F': _g.opt_F = 1; break;
 		case 'R': _g.opt_R = 1; break;
