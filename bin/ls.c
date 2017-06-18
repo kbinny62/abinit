@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 
+struct file_list;
 
 static struct {
 	char *exename,
@@ -25,6 +26,7 @@ static struct {
 	int opt_a, opt_l, opt_r, /* r: reverse sort */
 	    opt_A, opt_R, opt_F, /* R: recurse, F: no-follow+filetype */
 	    opt_L, opt_S;	 /* L: follow symlinks, S: sort-by-size */
+	struct file_list *listed_dirs;
 } _g;
 
 
@@ -43,6 +45,7 @@ void usage(char *msg, ...)
 
 /**
  * the `file list' data structure + scaffolding and helpers
+ * an instance of file_list is initialized by a simple memset to 0
  */
 enum file_list_sorter {
 	SORTER_NONE = 0,
@@ -51,8 +54,8 @@ enum file_list_sorter {
 };
 
 struct file_list {
-	char *filename;
-	char *pathname;
+	char *filename;		/* dir-relative filename */
+	char *pathname;		/* ls_root-relative pathname */
 	struct stat sbuf;
 
 	struct file_list *next, *prev;
@@ -61,27 +64,30 @@ struct file_list {
 void file_list_add(struct file_list *head, const char *filename, const char *pathname, struct stat *sbuf)
 {
 	struct file_list *p = head;
-	assert(head != NULL && filename != NULL);
+	assert(head != NULL && sbuf != NULL);
 	while (p->next)
 		p = p->next;
 	assert(p->next = malloc(sizeof(*p)));
-	p->next->filename = strdup(filename);
-	p->next->pathname = strdup(pathname);
+	p->next->filename = filename ? strdup(filename) : NULL;
+	p->next->pathname = pathname ? strdup(pathname) : NULL;
 	p->next->sbuf = *sbuf;
 	p->next->next = NULL;
 	p->next->prev = p;
 }
 
+/* collating sequence sort camparison callback */
 int sortfunc_coll(const struct file_list *f1, const struct file_list *f2)
 {
 	return strcmp(f1->filename, f2->filename);
 }
 
+/* file size sort comparison callback */
 int sortfunc_size(const struct file_list *f1, const struct file_list *f2)
 {
 	return f1->sbuf.st_size - f2->sbuf.st_size;
 }
 
+/* Sort forall f in file_list pointed by head (starting @head->next) */
 void file_list_sort(struct file_list *head, enum file_list_sorter sorter)
 {
 	struct file_list *p1, *p2;
@@ -151,23 +157,13 @@ void file_list_free(struct file_list *head)
 	if (head->pathname) free(head->pathname);
 }
 
-
-char  *file_class_char(struct file_list *f)
+/* return file classification char[2] for -F */
+const char *file_class_char(struct stat *sbuf)
 {
-	switch (f->sbuf.st_mode & S_IFMT) {
-	case S_IFDIR:
-		return "/";
-	case S_IFLNK:
-		return "@";
-	case S_IFIFO:
-		return "|";
-	case S_IFREG:
-		if (f->sbuf.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))
-			return "*";
-		/* fall-thru */
-	default:
-		return "";
-	}
+	register int fmt = sbuf->st_mode & S_IFMT;
+	return	fmt == S_IFDIR ? "/" : fmt == S_IFLNK ? "@" : fmt == S_IFIFO ? "|" : \
+		fmt == S_IFREG && sbuf->st_mode & (S_IXUSR | S_IXGRP | S_IXOTH) ? "*" \
+		: "";
 }
 
 
@@ -251,7 +247,11 @@ const char *time_to_str(time_t t)
 void list_file(struct file_list p[1])
 {
 	static char *linkbuf = NULL;
+	struct stat sbuf;
 	if (!linkbuf) assert(linkbuf = malloc(PATH_MAX+1));
+
+	if (_g.opt_L)
+		stat(p->pathname, &sbuf);
 
 	if (_g.opt_l) {
 		if (S_ISBLK(p->sbuf.st_mode) || S_ISCHR(p->sbuf.st_mode))
@@ -264,7 +264,7 @@ void list_file(struct file_list p[1])
 			time_to_str(p->sbuf.st_mtim.tv_sec), p->filename);
 
 		if (_g.opt_F && (!S_ISLNK(p->sbuf.st_mode) ||_g.opt_L))
-			printf("%s", file_class_char(p));
+			printf("%s", file_class_char(_g.opt_L ? &sbuf : &p->sbuf));
 		if (!_g.opt_L && S_ISLNK(p->sbuf.st_mode)) {
 			ssize_t len = readlink(p->pathname, linkbuf, PATH_MAX);
 			if (len != -1) {
@@ -276,7 +276,7 @@ void list_file(struct file_list p[1])
 	} else {
 		printf("%s", p->filename);
 		if (_g.opt_F)
-			printf("%s", file_class_char(p));
+			printf("%s", file_class_char(&p->sbuf));
 		putchar('\n');
 	}
 }
@@ -307,7 +307,7 @@ for (pathname=pathnamev[i=0]; i<ABS(nargs); pathname=pathnamev[++i]) {
 		is_mixed_listing = 1;
 
 	/* Enumerate */
-	if (nargs == 1 && (S_ISDIR(lsbuf.st_mode) || S_ISLNK(lsbuf.st_mode) && S_ISDIR(sbuf.st_mode) && (!_g.opt_F || _g.opt_L))) {	
+	if (nargs == 1 && (S_ISDIR(lsbuf.st_mode) || S_ISLNK(lsbuf.st_mode) && S_ISDIR(sbuf.st_mode) && _g.opt_L)) {	
 		DIR *dirp;
 		struct dirent *dp;
 		char *pathbuf = malloc(PATH_MAX+1);
@@ -318,8 +318,9 @@ for (pathname=pathnamev[i=0]; i<ABS(nargs); pathname=pathnamev[++i]) {
 		if ((dirp = opendir(pathname)) == NULL) {
 			fprintf(stderr, "%s: opendir '%s': %s\n", _g.exename, pathname, strerror(errno));
 			return EXIT_FAILURE;
-		}
-
+		} else
+			file_list_add(_g.listed_dirs, NULL, NULL, &sbuf);
+	
 		do {
 			errno = 0;
 			if ((dp = readdir(dirp)) == NULL)
@@ -334,8 +335,6 @@ for (pathname=pathnamev[i=0]; i<ABS(nargs); pathname=pathnamev[++i]) {
 				continue;
 			if (!(strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) && !_g.opt_a)
 				continue;
-			if (S_ISLNK(esbuf.st_mode) && _g.opt_L)
-				stat(pathbuf, &esbuf);
 			file_list_add(&files, dp->d_name, pathbuf, &esbuf);
 			dir_count++;
 		} while (dp != NULL);
@@ -343,7 +342,7 @@ for (pathname=pathnamev[i=0]; i<ABS(nargs); pathname=pathnamev[++i]) {
 		free(pathbuf);
 		closedir(dirp);
 	} else
-		file_list_add(&files, pathname, pathname, S_ISLNK(lsbuf.st_mode) && !_g.opt_L ? &lsbuf : &sbuf);
+		file_list_add(&files, pathname, pathname, &lsbuf);
 } /* for(p in pathnamev) */
 
 
@@ -366,10 +365,33 @@ for (pathname=pathnamev[i=0]; i<ABS(nargs); pathname=pathnamev[++i]) {
 
 	/** Recurse if needed (-R or explicit command line args) */
 	if (_g.opt_R || nargs < 0) {
+		/* The _g.listed_dirs structure need not maintain pathnames nor be sorted,
+		 * just stat info for matching already-listed directories by inode number */
+		if (!_g.listed_dirs) {
+			assert((_g.listed_dirs = malloc(sizeof(struct file_list))) != NULL);
+			memset(_g.listed_dirs, 0, sizeof(*_g.listed_dirs));
+		}
 		for (p = files.next; p; p = p->next) {
-			lstat(p->pathname, &lsbuf);
-			if (S_ISDIR(p->sbuf.st_mode) || S_ISLNK(p->sbuf.st_mode) && S_ISDIR(lsbuf.st_mode) \
-					&& (!_g.opt_F || _g.opt_L) && strcmp(p->filename, ".") && strcmp(p->filename, "..")) {
+			stat(p->pathname, &sbuf);
+			if (nargs < 0 && S_ISDIR(sbuf.st_mode) || \
+				  nargs == 1 && S_ISDIR(p->sbuf.st_mode) && strcmp(p->filename, ".") && strcmp(p->filename, "..") || \
+				  S_ISLNK(p->sbuf.st_mode) && S_ISDIR(sbuf.st_mode) && _g.opt_L) {
+				if (S_ISLNK(p->sbuf.st_mode)) {
+					struct file_list *dp;
+					static char *linkbuf = NULL;
+					ssize_t len;
+					if (!linkbuf) assert((linkbuf = malloc(PATH_MAX+1)) != NULL);
+					for (dp=_g.listed_dirs->next; dp != NULL && dp->sbuf.st_ino != sbuf.st_ino; dp = dp->next)
+						;
+					if ((len = readlink(p->pathname, linkbuf, PATH_MAX)) != -1 && (linkbuf[len]='\0')=='\0' \
+							&& (strcmp(linkbuf, ".") == 0) || dp != NULL) {
+						fflush(stdout);
+						fprintf(stderr, "%s: skipping redundant softlink '%s' -> %s\n",
+								_g.exename, p->pathname, linkbuf);
+						fflush(stderr);
+						continue;
+					}
+				}
 				if (ABS(nargs) > 1 && is_mixed_listing || !is_first_listing)
 					putchar('\n');
 				if (_g.opt_R || ABS(nargs) > 1)
