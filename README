@@ -1,21 +1,32 @@
 # abinit
 
-*** born out of necessity
-+++ nice to have
---- aesthetic or otherwise non-essential
+This code tree represents an approximation of the natural evolution of what might have been the newly nascent UNIX computing environment. To this aim, the development is hosted in a specifically constructed and minimally equipped environment with a basic init process and shell (/bin/sh /sbin/init) along with an unspecified ANSI-C conformant libc and compiler (cc). A vi clone is used for text entry and POSIX.1.2008 compatible system interfaces are assumed.
+
+What the code is NOT, however, is a rewrite of a more or less conformant/inclusive UNIX userland (a-la-busybox) although many of its components can and are used as such within the primordial environment described above.
 
 
-* First came *mkdir*/*rmdir* and *unlink*.
-* *cat*.
-+ Utility of '*sed*' became abvious as the need to substitute ill-chosen identifier names in source files became impractical to do manually...
-- a non-standard *which*
-* the equivalent of 'cat SRC>DEST && unlink SRC' is now *mv* - without having to recursively traverse directory structures.
-* Still, *cp* will be needed next.
-+ *rm*
-- *id*, *uname*
-- *ls*
-* *mktemp*, *env* : these are shell scripting enablers
-* *chmod*
-* sort
-++ *sed*!
+The rest of this document is a higher-level record of the progression of development of such system and is distinct in scope from the source-control changelog. The entries come in chronological order of what was either immediately needed for normal operation of the computing environment and/or further development, or a just concretized concept for a new and useful utility to be implemented later on.
+
+Legend:
+*** Undispensable tool
++++ Nice to have
+--- Aesthetic or otherwise non-essential
+0-9 Status/Progress (0:Concept, 1-8: WIP, 9:Feature-complete)
+
+* First came 'mkdir' [9], 'rmdir' [9] as well as 'unlink' [9].
+* 'cat' [9].
++ Utility of 'sed' [0] became abvious as the need to substitute ill-chosen identifier names
+  in source files became impractical to do manually... the choice to include a vi clone
+  as a code editor demoted sed to a status of '+++'.
+- 'which' [9]
+* The equivalent of what could be performed with a 'cat SRC>DEST && unlink SRC' is now
+  'mv' [9] - bonus for painless moves of entires directory trees.
+* 'cp' [1] will be needed next.
++ 'rm' [5]
+- 'id' [8], 'uname' [9].
+- 'ls' [6]
+* 'mktemp' [9], 'env' [9] : these are shell scripting enablers
+* 'chmod' [1] : along with cp, are needed for user home directory system administration
+* 'sort' [4]
++ 'sed'++! [0]
 
