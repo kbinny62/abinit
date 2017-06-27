@@ -4,7 +4,7 @@ STRIP ?= strip
 MV ?= mv
 RM ?= rm 
 
-TARGETS = cat chmod cp cut ln ls mkdir mktemp mv rm rmdir uname unlink
+TARGETS = cat chmod cp cut ln ls mkdir mktemp mv rm rmdir uname uniq unlink
 all: $(TARGETS)
 
 clean:

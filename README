@@ -29,4 +29,5 @@ Legend:
 * 'chmod' [1] : along with cp, are needed for user home directory system administration
 * 'sort' [4]
 + 'sed'++! [0]
++ 'uniq' [7]
 
