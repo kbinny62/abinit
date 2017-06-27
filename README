@@ -8,9 +8,9 @@ What the code is NOT, however, is a rewrite of a more or less conformant/inclusi
 The rest of this document is a higher-level record of the progression of development of such system and is distinct in scope from the source-control changelog. The entries come in chronological order of what was either immediately needed for normal operation of the computing environment and/or further development, or a just concretized concept for a new and useful utility to be implemented later on.
 
 Legend:
-*** Undispensable tool
-+++ Nice to have
---- Aesthetic or otherwise non-essential
+*** Essential/Dependency
++++ Helpful/Enabler
+--- Aesthetic and User eXperience
 0-9 Status/Progress (0:Concept, 1-8: WIP, 9:Feature-complete)
 
 * First came 'mkdir' [9], 'rmdir' [9] as well as 'unlink' [9].
@@ -25,9 +25,9 @@ Legend:
 + 'rm' [5]
 - 'id' [8], 'uname' [9].
 - 'ls' [6]
-* 'mktemp' [9], 'env' [9] : these are shell scripting enablers
++ 'mktemp' [9], 'env' [9] : these are shell scripting enablers
 * 'chmod' [1] : along with cp, are needed for user home directory system administration
 * 'sort' [4]
 + 'sed'++! [0]
 + 'uniq' [7]
-
++ 'tail' [7]
