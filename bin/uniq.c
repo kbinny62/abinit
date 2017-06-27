@@ -63,10 +63,10 @@ int main(int argc, char *argv[])
 	}
 
 	if (argc-optind > 0)
-		if ((in = fopen(argv[optind], "r")) == NULL)
+		if ((in = strcmp(argv[optind], "-") ? fopen(argv[optind], "r") : stdin) == NULL)
 			return ERR("error opening '%s' (input)", argv[optind]);
 	if (argc-optind > 1)
-		if ((out = fopen(argv[optind+1], "w")) == NULL)
+		if ((out = strcmp(argv[optind+1], "-") ? fopen(argv[optind+1], "w") : stdout) == NULL)
 			return ERR("error opening '%s' (output)", argv[optind+1]);
 
 	for (rep_count = 1; (opt = getline(&line, &n, in)) || 1!=0; ) {
