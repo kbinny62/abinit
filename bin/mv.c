@@ -71,11 +71,20 @@ int main(int argc, char *argv[])
 
 	/* opt is # of non-option args (file operands) */
 	for (opt=argc-optind ; optind < argc-1; optind++) {
-		char *target_path = opt > 2  || file_isdir(_g.target) ? malloc(PATH_MAX+1) : _g.target;
-		if (_g.opt_v)
-			printf("%s -> %s\n", argv[optind], target_path);
+		struct stat sbuf;
+		char *target_path;
+
+		if (stat(argv[optind], &sbuf) == -1) {
+			fprintf(stderr, "%s: unable to stat source operand '%s': %s\n", _g.exename, argv[optind], strerror(errno));
+			retv |= EXIT_FAILURE;
+			continue;
+		}
+
+		target_path = opt > 2 || file_isdir(_g.target) ? malloc(PATH_MAX+1) : _g.target;
 		if (target_path != _g.target)
 			snprintf(target_path, PATH_MAX+1, "%s/%s", _g.target, basename(argv[optind]));
+		if (_g.opt_v)
+			printf("%s -> %s\n", argv[optind], target_path);
 		if (rename(argv[optind], target_path) == -1) {
 			fprintf(stderr, "%s: rename of %s -> %s failed: %s\n", _g.exename, argv[optind], target_path, strerror(errno));
 			retv |= EXIT_FAILURE;
