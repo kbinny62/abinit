@@ -91,6 +91,9 @@ static int do_single_cp(const char *dest_path, char *src_path)
 
 	assert(dest_path && src_path);
 
+	if (_g.opt_v)
+		fprintf(stdout, "%s: %s -> %s\n", _g.exename, src_path, dest_path);
+
 	if (path_isdir(dest_path) || path_isdir(src_path))
 		usage("unexpected directory-type argument\n");
 	if (stat(dest_path, &sbuf) != -1)
@@ -116,7 +119,7 @@ static int do_single_cp(const char *dest_path, char *src_path)
 
 	if ((src_fd = open(src_path, O_RDONLY)) < 0)
 		return ERR("open '%s'", dest_path);
-	if ((dest_fd = creat(dest_path, 0644)) < 0)
+	if ((dest_fd = creat(dest_path, lsbuf.st_mode)) < 0)
 		return ERR("creat '%s'", src_path);
 #if defined __linux__ /* >= 2.6.33 */
 	while ((nwritten = sendfile(dest_fd, src_fd, NULL, BUFSIZ)) > 0) ;
