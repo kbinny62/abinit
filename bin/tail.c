@@ -53,19 +53,15 @@ static int usage(char *msg, ...)
  *  shifting pointers and allocating memory when necessary */
 void linebuf_add(char *line)
 {
-	if (_g.linebuf) {
-		if (_g.nlines < _g.opt_n) {
-			_g.linebuf[_g.nlines++] = line;
-		} else {
-			size_t i;
-			free(_g.linebuf[0]);
-			for (i=0; i<_g.opt_n-1; i++)
-				_g.linebuf[i] = _g.linebuf[i+1];
-			_g.linebuf[_g.opt_n-1] = line;
-		}
+	assert(_g.linebuf != NULL);
+	if (_g.nlines < _g.opt_n) {
+		_g.linebuf[_g.nlines++] = line;
 	} else {
-		assert(_g.linebuf = calloc(_g.opt_n, sizeof(char*)));
-		_g.nlines = 0;
+		size_t i;
+		free(_g.linebuf[0]);
+		for (i=0; i<_g.opt_n-1; i++)
+			_g.linebuf[i] = _g.linebuf[i+1];
+		_g.linebuf[_g.opt_n-1] = line;
 	}
 }
 
@@ -127,6 +123,9 @@ int main(int argc, char *argv[])
 			exit(usage(NULL));
 		}
 	}
+
+	assert(_g.linebuf = calloc(_g.opt_n, sizeof(char*)));
+	_g.nlines = 0;
 
 	if (argc-optind > 0)
 		while (optind < argc)
