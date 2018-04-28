@@ -23,6 +23,7 @@ static struct {
 	char *exename,
 	     *usage_str;
 
+	int  opt_f;	/* ignore case */
 	int  opt_n;	/* numeric sort */
 	int  opt_r;	/* reverse */
 	char *opt_t;	/* field seperarator */
@@ -86,7 +87,7 @@ int num_sorter(const char **l1, const char **l2)
 
 int coll_sorter(const char **l1, const char **l2)
 {
-	register int retv = strcmp(*l1, *l2);
+	register int retv = _g.opt_f ? strcasecmp(*l1, *l2) : strcmp(*l1, *l2);
 	return _g.opt_r ? -retv : retv;
 }
 
@@ -178,9 +179,10 @@ int main(int argc, char *argv[])
 	int opt, retv=EXIT_SUCCESS;
 	
 	_g.exename = argv[0];
-	_g.usage_str = "[-nr] [-k KEYIDX[,KEYIDX]] [-t FLDSEP] FILE...";
-	while ((opt = getopt(argc, argv, "k:nrt:")) != -1) {
+	_g.usage_str = "[-fnr] [-k KEYIDX[,KEYIDX]] [-t FLDSEP] FILE...";
+	while ((opt = getopt(argc, argv, "fk:nrt:")) != -1) {
 		switch (opt) {
+		case 'f': _g.opt_f = 1; break;
 		case 'n': _g.opt_n = 1; break;
 		case 'r': _g.opt_r = 1; break;
 		case 'k':
