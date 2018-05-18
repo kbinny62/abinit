@@ -28,17 +28,19 @@ static struct {
 	int  opt_r;	/* reverse */
 	char *opt_t;	/* field seperarator */
 
-	char **buf;
+	char **buf;	/* lines buffer */
 	size_t buf_len;
 	size_t num_lines;
 
-	struct numeric_range *keys;
-	size_t num_keys;
+	struct numeric_range *keys;	/* sort key range list */
+	size_t num_keys;		/* # of keys in list */
 } _g;
 
 
 /**
- *  formats error message and append strerror(errno) */
+ *  formats error message and append strerror(errno)
+ *  @param {string} fmt - static format param
+ */
 static void ERR(const char *fmt, ...)
 {
 	va_list ap;
@@ -66,6 +68,10 @@ static void usage(char *msg, ...)
 #define	LINES_INITLEN	0x100
 #define	LINES_GRAIN	0x400
 
+/**
+ *  appends line into the global buffer, growing buffer as needed
+ *  @param {string} line - line to append, NOT duplicated
+ */
 void append_line(char *line)
 {
 	if (!_g.buf) {
@@ -79,20 +85,34 @@ void append_line(char *line)
 	_g.buf[_g.num_lines++] = line;
 }
 
-int num_sorter(const char **l1, const char **l2)
+/* type definition for sort callback */
+typedef int (*sort_callback_t)(const void*, const void*);
+
+/**
+ *  Numeric sort callback
+ *  @param {string} l1, l2 - lines to be compared
+ */
+int numsort_cb(const char **l1, const char **l2)
 {
 	register int retv = atol(*l1) - atol(*l2);
 	return _g.opt_r ? -retv : retv;
 }
 
-int coll_sorter(const char **l1, const char **l2)
+/**
+ *  Alphanumeric sort callback
+ *  @param {string} l1, l2 - lines to be sorted
+ */
+int collsort_cb(const char **l1, const char **l2)
 {
 	register int retv = _g.opt_f ? strcasecmp(*l1, *l2) : strcmp(*l1, *l2);
 	return _g.opt_r ? -retv : retv;
 }
 
-typedef int (*sort_callback_t)(const void*, const void*);
-
+/**
+ *  Given a filename, read out its contents into the buffer to be sorted
+ *  @param {string} filename - path to a filename, or "-" for stdin
+ *  @return {int} - returns EXIT_FAILURE or EXIT_SUCCESS to reflect error status or lack thereof
+ */
 int do_sort(const char *filename)
 {
 	FILE *fp = filename && strcmp(filename, "-") ? fopen(filename, "r") : stdin;
@@ -112,17 +132,18 @@ int do_sort(const char *filename)
 	if (ferror(fp))
 		fprintf(stderr, "%s: error reading '%s': %s\n", _g.exename, filename, strerror(errno));
 		
-	qsort(_g.buf, _g.num_lines, sizeof(*_g.buf), (sort_callback_t)(_g.opt_n ? num_sorter: coll_sorter));
-	for (i=0; i<_g.num_lines; i++)
-		printf("%s\n", _g.buf[i]);
-	
-	if (line) free(line);
-	if (fp != stdin)
+		if (fp != stdin)
 		fclose(fp);
 	return EXIT_SUCCESS;
 }
 
 #define BADKEY_RET(errcode,args...) { errno = errcode; ERR(args); return; }
+/**
+ *  Parses a numeric range (key) definition and updates the passed in data structures
+ *  @param {string} str - numeric range
+ *  @param {numeric_range} ranges - pointer to range list
+ *  @param {size_t} num_ranges - number of entries in list
+ */
 void str_to_ranged_list(char *str, struct numeric_range **ranges, size_t *num_ranges)
 {
 	char *endptr, *p;
@@ -176,7 +197,7 @@ void str_to_ranged_list(char *str, struct numeric_range **ranges, size_t *num_ra
 
 int main(int argc, char *argv[])
 {
-	int opt, retv=EXIT_SUCCESS;
+	int i, opt, retv=EXIT_SUCCESS;
 	
 	_g.exename = argv[0];
 	_g.usage_str = "[-fnr] [-k KEYIDX[,KEYIDX]] [-t FLDSEP] FILE...";
@@ -201,6 +222,11 @@ int main(int argc, char *argv[])
 		retv = do_sort(NULL);
 	else for ( ; optind < argc; optind++)
 		retv |= do_sort(argv[optind]);
+
+	/*  Sort and print the concatentation of content of all files specified as input */
+	qsort(_g.buf, _g.num_lines, sizeof(*_g.buf), (sort_callback_t)(_g.opt_n ? numsort_cb: collsort_cb));
+	for (i=0; i<_g.num_lines; i++)
+		printf("%s\n", _g.buf[i]);
 
 	return retv;
 }
