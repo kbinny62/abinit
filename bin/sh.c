@@ -45,11 +45,15 @@ void do_exec(int argc, char * const *argv, int is_detached) {
 			signal(SIGINT, SIG_DFL);
 			signal(SIGQUIT, SIG_DFL);
 		}
+
+		/* No job control */
+		signal(SIGTSTP, SIG_IGN);
+
 		if (execvp(argv[0], argv) == -1) {
 			fprintf(stderr, "execvp(\"%s\") failed: %s\n", argv[0], strerror(errno));
 			exit(EXIT_FAILURE);
 		}
-	} else { /* child */
+	} else { /* parent */
 		if (is_detached) {
 			fprintf(stdout, "[%u] %s &\n", (unsigned)pid, argv[0]);
 			return;
